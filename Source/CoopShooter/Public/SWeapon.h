@@ -7,6 +7,8 @@
 #include "SWeapon.generated.h"
 
 class USkeletalMeshComponent;
+class UDamageType;
+class UParticleSystem;
 
 UCLASS()
 class COOPSHOOTER_API ASWeapon : public AActor
@@ -24,7 +26,24 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Componets")
 	USkeletalMeshComponent* MeshComp;
 
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	void Fire();
+
+	// we don't need an instance because we don't change the damage type
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	TSubclassOf<UDamageType> DamageType;
+
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	FName MuzzleSocketName;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
+	UParticleSystem* MuzzleEffect;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
+	UParticleSystem* ImpactEffect;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
+	UParticleSystem* TracerEffect;
 
 public:	
 	// Called every frame

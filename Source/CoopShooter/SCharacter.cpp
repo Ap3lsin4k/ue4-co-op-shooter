@@ -81,3 +81,14 @@ void ASCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponen
 
 }
 
+FVector ASCharacter::GetPawnViewLocation() const
+{
+	if (CameraComp)
+	{
+		return CameraComp->GetComponentLocation();
+	}
+
+	// location of the head (eyes)
+	return Super::GetPawnViewLocation();
+}
+
