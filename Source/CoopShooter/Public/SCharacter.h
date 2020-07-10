@@ -63,8 +63,9 @@ protected:
 	UPROPERTY(VisibleDefaultsOnly, Category = "Player")
 	FName WeaponAttachSocketName;
 
-	UFUNCTION(BlueprintCallable)
-	void Fire();
+	void BeginFire();
+
+	void EndFire();
 
 public:	
 	// Called every frame

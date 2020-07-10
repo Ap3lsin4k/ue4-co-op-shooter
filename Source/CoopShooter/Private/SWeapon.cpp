@@ -7,6 +7,7 @@
 #include "Components/SceneComponent.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
 #include "CoopShooter/CoopShooter.h"
+#include "TimerManager.h"
 
 int32 DebugWeaponDrawing = 0;
 // ECVF_Cheat is disabled for release build
@@ -20,19 +21,42 @@ ASWeapon::ASWeapon()
 	RootComponent = MeshComp;
 
 	MuzzleSocketName = "MuzzleFlashSocket";
+
+	BaseDamage = 20.0f;
+	RateOfFire = 600.0f;
 }
 
 
 
+void ASWeapon::StartFire()
+{
+	float FirstDelay = FMath::Max(LastFireTime + TimeBetweenShots - GetWorld()->TimeSeconds, 0.0f);
+
+	GetWorldTimerManager().SetTimer(TimerHandle_AutomaticFire, this, &ASWeapon::Fire, TimeBetweenShots, true, FirstDelay);
+}
+
+void ASWeapon::EndFire()
+{
+	GetWorldTimerManager().ClearTimer(TimerHandle_AutomaticFire);
+}
+
+void ASWeapon::BeginPlay()
+{
+	Super::BeginPlay();
+
+	TimeBetweenShots = 60 / RateOfFire;
+}
+
 void ASWeapon::Fire()
 {
-	//Trace the world, from pawn eyes to crosshair location (center of the screen)
 	
 	// find out who is the owner of the weapon
 	AActor* MyOwner = GetOwner();
 
 	if (MyOwner)
 	{
+
+		UE_LOG(LogTemp, Log, TEXT("Firing!"));
 		FVector EyeLocation;
 		FRotator EyeRotation;
 
@@ -59,9 +83,21 @@ void ASWeapon::Fire()
 		// particle "BeamEnd" parameter
 		FVector TrackBulletEndPoint = TraceEnd;
 
-		// anything that is visible will block our trace and returns Hit.
-		if (GetWorld()->LineTraceSingleByChannel(Hit, EyeLocation, TraceEnd, ECC_Visibility, QueryParams))
+		//Trace the world, from pawn eyes to crosshair location (center of the screen)
+		// anything that our trace channel and returns Hit.
+		if (GetWorld()->LineTraceSingleByChannel(Hit, EyeLocation, TraceEnd, ECC_GameTraceChannel1, QueryParams))
 		{
+			// TWeakObject point 
+			UPhysicalMaterial* HitPhysMat = Hit.PhysMaterial.Get();
+			EPhysicalSurface HitSurfaceType = UPhysicalMaterial::DetermineSurfaceType(HitPhysMat);
+
+			float ActualDamage = BaseDamage;
+			if (HitSurfaceType == SHOOTER_SURFACE_FLASHVULNERABLE)
+			{
+				ActualDamage *= 4.0f;
+			}
+
+
 			// Blocking hit! Process damage
 			UE_LOG(LogTemp, Log, TEXT("Blocking hit!"));
 			AActor* HitActor = Hit.GetActor();
@@ -70,31 +106,24 @@ void ASWeapon::Fire()
 
 			//HitActor->TakeDamage(20.0f, pointDamageEvent, MyOwner->GetInstigatorController(), this);
 			// Instigator is WHO caused the damage. Weapon is damage causer
-			UGameplayStatics::ApplyPointDamage(HitActor, 20.0f, ShootDirection, Hit, MyOwner->GetInstigatorController(), this, DamageType);
+			UGameplayStatics::ApplyPointDamage(HitActor, ActualDamage, ShootDirection, Hit, MyOwner->GetInstigatorController(), this, DamageType);
 		
-			// TWeakObject point 
-			UPhysicalMaterial* HitPhysMat = Hit.PhysMaterial.Get();
-			UE_LOG(LogTemp, Log, TEXT("HitPhysMat: %s"), *(HitPhysMat->GetFullName()));
-
-			EPhysicalSurface HitSurfaceType = UPhysicalMaterial::DetermineSurfaceType(HitPhysMat);
 			
 			UParticleSystem* ImpactEffect = nullptr;
 
-			const UEnum* WeaponStateEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EPhysicalSurface"));
-
 			switch (HitSurfaceType)
 			{
-			case SurfaceType1:
-				UE_LOG(LogTemp, Log, TEXT("SurfaceType1: %s"), *(WeaponStateEnum ? WeaponStateEnum->GetEnumName(HitSurfaceType) : TEXT("<Invalid Enum>")));
+			case SHOOTER_SURFACE_FLASHDEFAULT:
+				UE_LOG(LogTemp, Log, TEXT("SurfaceType1: %s"), *(HitPhysMat->GetFullName()));
 				ImpactEffect = FleshImpactEffect;
 				break;
-			case SurfaceType2:
+			case SHOOTER_SURFACE_FLASHVULNERABLE:
 
-				UE_LOG(LogTemp, Log, TEXT("SurfaceType2: %s"), *(WeaponStateEnum ? WeaponStateEnum->GetEnumName(HitSurfaceType) : TEXT("<Invalid Enum>")));
+				UE_LOG(LogTemp, Log, TEXT("SurfaceType2: %s"), *(HitPhysMat->GetFullName()));
 				ImpactEffect = VulnerableFleshImpactEffect;
 				break;
 			default:
-				UE_LOG(LogTemp, Error, TEXT("SurfaceType0: %s"), *(WeaponStateEnum ? WeaponStateEnum->GetEnumName(HitSurfaceType) : TEXT("<Invalid Enum>")));
+				UE_LOG(LogTemp, Log, TEXT("SurfaceType0: %s"), *(HitPhysMat->GetFullName()));
 				ImpactEffect = DefaultImpactEffect;
 				break;
 			}
@@ -114,6 +143,8 @@ void ASWeapon::Fire()
 
 
 		PlayFireEffects(TrackBulletEndPoint);
+
+		LastFireTime = GetWorld()->TimeSeconds;
 	}
 	else
 	{

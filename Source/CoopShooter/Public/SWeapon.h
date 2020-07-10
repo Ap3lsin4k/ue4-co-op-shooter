@@ -19,12 +19,15 @@ public:
 	// Sets default values for this actor's properties
 	ASWeapon();
 
-	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	void Fire();
+	void StartFire();
+
+	void EndFire();
 
 protected:
 
 	// if UFUNCTION(BlueprintCallable, Category = "Weapon") it is "blueprint public" by default
+
+	virtual void BeginPlay() override;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Componets")
 	USkeletalMeshComponent* MeshComp;
@@ -54,8 +57,25 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
 	TSubclassOf<UCameraShake> FireCamShake;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
+	float BaseDamage;
+
+	/* RPM amount of bullets per minute*/
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
+	float RateOfFire;
+
 private:
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	void Fire();
 
 	void PlayFireEffects(FVector TraceEnd);
 	
+	// make global, so only a timer exists at a time
+	FTimerHandle TimerHandle_AutomaticFire;
+
+	float LastFireTime;
+
+	// derived from RateOfFire in seconds
+	float TimeBetweenShots;
 };
