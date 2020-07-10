@@ -4,3 +4,6 @@
 
 #include "CoreMinimal.h"
 
+#define SURFACE_FLASHDEFAULT		SurfaceType1
+#define SURFACE_FLASHVULNERABLE		SurfaceType2
+

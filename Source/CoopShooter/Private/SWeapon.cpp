@@ -5,27 +5,24 @@
 #include "Kismet/GameplayStatics.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "Components/SceneComponent.h"
-#
+#include "PhysicalMaterials/PhysicalMaterial.h"
+#include "CoopShooter/CoopShooter.h"
+
+int32 DebugWeaponDrawing = 0;
+// ECVF_Cheat is disabled for release build
+FAutoConsoleVariableRef CVARDebugTrackBulletDrawing(TEXT("COOP.DebugWeapons"), DebugWeaponDrawing, TEXT("Draw Debug Lines from eye for Weapons"), ECVF_Cheat);
 
 
 // Sets default values
 ASWeapon::ASWeapon()
 {
-	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
-
 	MeshComp = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("MeshComp"));
 	RootComponent = MeshComp;
 
 	MuzzleSocketName = "MuzzleFlashSocket";
 }
 
-// Called when the game starts or when spawned
-void ASWeapon::BeginPlay()
-{
-	Super::BeginPlay();
-	
-}
+
 
 void ASWeapon::Fire()
 {
@@ -54,60 +51,105 @@ void ASWeapon::Fire()
 		// trace against each individual triangle (more expensive)
 		// we want to be very accurate
 		QueryParams.bTraceComplex = true;
+		QueryParams.bReturnPhysicalMaterial = true;
 
 		// to know what we hit
 		FHitResult Hit;
 		
 		// particle "BeamEnd" parameter
-		FVector TraceEndPoint = TraceEnd;
+		FVector TrackBulletEndPoint = TraceEnd;
 
 		// anything that is visible will block our trace and returns Hit.
-		if (GetWorld()->LineTraceSingleByChannel(Hit, EyeLocation, TraceEnd, ECC_Visibility))
+		if (GetWorld()->LineTraceSingleByChannel(Hit, EyeLocation, TraceEnd, ECC_Visibility, QueryParams))
 		{
 			// Blocking hit! Process damage
 			UE_LOG(LogTemp, Log, TEXT("Blocking hit!"));
 			AActor* HitActor = Hit.GetActor();
 
-			FPointDamageEvent pointDamageEvent(0.0f, Hit, ShootDirection, DamageType);
+		//	FPointDamageEvent pointDamageEvent(0.0f, Hit, ShootDirection, DamageType);
 
-			HitActor->TakeDamage(20.0f, pointDamageEvent, MyOwner->GetInstigatorController(), this);
+			//HitActor->TakeDamage(20.0f, pointDamageEvent, MyOwner->GetInstigatorController(), this);
 			// Instigator is WHO caused the damage. Weapon is damage causer
-			//UGameplayStatics::ApplyPointDamage(HitActor, 20.0f, ShootDirection, Hit, MyOwner->GetInstigatorController(), this, DamageType);
+			UGameplayStatics::ApplyPointDamage(HitActor, 20.0f, ShootDirection, Hit, MyOwner->GetInstigatorController(), this, DamageType);
+		
+			// TWeakObject point 
+			UPhysicalMaterial* HitPhysMat = Hit.PhysMaterial.Get();
+			UE_LOG(LogTemp, Log, TEXT("HitPhysMat: %s"), *(HitPhysMat->GetFullName()));
+
+			EPhysicalSurface HitSurfaceType = UPhysicalMaterial::DetermineSurfaceType(HitPhysMat);
+			
+			UParticleSystem* ImpactEffect = nullptr;
+
+			const UEnum* WeaponStateEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EPhysicalSurface"));
+
+			switch (HitSurfaceType)
+			{
+			case SurfaceType1:
+				UE_LOG(LogTemp, Log, TEXT("SurfaceType1: %s"), *(WeaponStateEnum ? WeaponStateEnum->GetEnumName(HitSurfaceType) : TEXT("<Invalid Enum>")));
+				ImpactEffect = FleshImpactEffect;
+				break;
+			case SurfaceType2:
+
+				UE_LOG(LogTemp, Log, TEXT("SurfaceType2: %s"), *(WeaponStateEnum ? WeaponStateEnum->GetEnumName(HitSurfaceType) : TEXT("<Invalid Enum>")));
+				ImpactEffect = VulnerableFleshImpactEffect;
+				break;
+			default:
+				UE_LOG(LogTemp, Error, TEXT("SurfaceType0: %s"), *(WeaponStateEnum ? WeaponStateEnum->GetEnumName(HitSurfaceType) : TEXT("<Invalid Enum>")));
+				ImpactEffect = DefaultImpactEffect;
+				break;
+			}
+
 			if (ImpactEffect)
 			{
 				UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ImpactEffect, Hit.ImpactPoint, Hit.ImpactNormal.Rotation());
 			}
 
-			TraceEndPoint = Hit.ImpactPoint;
+			TrackBulletEndPoint = Hit.ImpactPoint;
 		}
 
-		DrawDebugLine(GetWorld(), EyeLocation, TraceEnd, FColor::Black, false, 1.0f, 0, 1.0f);
-
-		if (MuzzleEffect)
+		if (DebugWeaponDrawing > 0)
 		{
-			// effect to follow the weapon
-			UGameplayStatics::SpawnEmitterAttached(MuzzleEffect, MeshComp, MuzzleSocketName);
+			DrawDebugLine(GetWorld(), EyeLocation, TraceEnd, FColor::Black, false, 1.0f, 0, 1.0f);
 		}
 
-		if (TracerEffect)
-		{
-			FVector MuzzleLocation = MeshComp->GetSocketLocation(MuzzleSocketName);
 
-			UParticleSystemComponent* TracerComp = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), TracerEffect, MuzzleLocation);
-			if (TracerComp)
-			{
-				TracerComp->SetVectorParameter("BeamEnd", TraceEndPoint);
-			}
-		}
-
+		PlayFireEffects(TrackBulletEndPoint);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("Cannot fire because the Owner of SWeapon is nullptr. Please, use `CurWeapon->SetOwner(MyPawn)` when spawning a weapon."));
 	}
 
+
 }
 
-// Called every frame
-void ASWeapon::Tick(float DeltaTime)
+void ASWeapon::PlayFireEffects(FVector TraceEnd)
 {
-	Super::Tick(DeltaTime);
 
+	if (MuzzleEffect)
+	{
+		// effect to follow the weapon
+		UGameplayStatics::SpawnEmitterAttached(MuzzleEffect, MeshComp, MuzzleSocketName);
+	}
+
+	if (TracerEffect)
+	{
+		FVector MuzzleLocation = MeshComp->GetSocketLocation(MuzzleSocketName);
+
+		UParticleSystemComponent* TracerComp = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), TracerEffect, MuzzleLocation);
+		if (TracerComp)
+		{
+			TracerComp->SetVectorParameter("BeamEnd", TraceEnd);
+		}
+	}
+
+	APawn* MyOwner = Cast<APawn>(GetOwner());
+	if (MyOwner)
+	{
+		APlayerController* PC = Cast<APlayerController>(MyOwner->GetController());
+		if (PC)
+		{
+			PC->ClientPlayCameraShake(FireCamShake);
+		}
+	}
 }
-
