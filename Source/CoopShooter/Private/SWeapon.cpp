@@ -92,7 +92,7 @@ void ASWeapon::Fire()
 			EPhysicalSurface HitSurfaceType = UPhysicalMaterial::DetermineSurfaceType(HitPhysMat);
 
 			float ActualDamage = BaseDamage;
-			if (HitSurfaceType == SHOOTER_SURFACE_FLASHVULNERABLE)
+			if (HitSurfaceType == COOP_SURFACE_FLASHVULNERABLE)
 			{
 				ActualDamage *= 4.0f;
 			}
@@ -113,11 +113,11 @@ void ASWeapon::Fire()
 
 			switch (HitSurfaceType)
 			{
-			case SHOOTER_SURFACE_FLASHDEFAULT:
+			case COOP_SURFACE_FLASHDEFAULT:
 				UE_LOG(LogTemp, Log, TEXT("SurfaceType1: %s"), *(HitPhysMat->GetFullName()));
 				ImpactEffect = FleshImpactEffect;
 				break;
-			case SHOOTER_SURFACE_FLASHVULNERABLE:
+			case COOP_SURFACE_FLASHVULNERABLE:
 
 				UE_LOG(LogTemp, Log, TEXT("SurfaceType2: %s"), *(HitPhysMat->GetFullName()));
 				ImpactEffect = VulnerableFleshImpactEffect;

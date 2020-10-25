@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 
-#define SHOOTER_SURFACE_FLASHDEFAULT		SurfaceType1
-#define SHOOTER_SURFACE_FLASHVULNERABLE		SurfaceType2
+#define COOP_SURFACE_FLASHDEFAULT		SurfaceType1
+#define COOP_SURFACE_FLASHVULNERABLE	SurfaceType2
 
-#define SHOOTER_COLLISION_WEAPON			ECC_GameTraceChannel1
+#define COOP_COLLISION_WEAPON			ECC_GameTraceChannel1

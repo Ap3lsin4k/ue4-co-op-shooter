@@ -9,6 +9,7 @@
 class UCameraComponent;
 class USpringArmComponent;
 class ASWeapon;
+class USHealthComponent;
 
 UCLASS()
 class COOPSHOOTER_API ASCharacter : public ACharacter
@@ -50,6 +51,10 @@ protected:
 	// set during BeginPlay 
 	float DefaultFOV;
 
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	USHealthComponent* HealthComp;
+
 	void BeginZoom();
 
 	void EndZoom();
@@ -66,6 +71,13 @@ protected:
 	void BeginFire();
 
 	void EndFire();
+
+	UFUNCTION()
+	void OnHealthChanged(USHealthComponent* HealthComponent, float Health, float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, AActor* DamageCauser);
+
+	/* Character died previously */
+	UPROPERTY(BlueprintReadOnly, Category = "Player")
+	bool bDied;
 
 public:	
 	// Called every frame
